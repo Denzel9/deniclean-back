@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MeasurementType {
+  DIMENSIONS
+  SQUARE_METERS
+}
+
+model Order {
+  id String @id @default(uuid())
+
+  customerName    String @map("customer_name")
+  customerPhone   String @map("customer_phone")
+  customerAddress String @map("customer_address")
+
+  price    Int
+  discount Int
+  total    Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items OrderItem[]
+  files OrderFile[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id String @id @default(uuid())
+
+  orderId String @map("order_id")
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  name String @db.VarChar(120)
+
+  quantity Int
+
+  measurementType MeasurementType? @map("measurement_type")
+  lengthMeters    Decimal?         @map("length_meters") @db.Decimal(10, 2)
+  widthMeters     Decimal?         @map("width_meters") @db.Decimal(10, 2)
+  squareMeters    Decimal?         @map("square_meters") @db.Decimal(10, 2)
+
+  price Int
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("order_items")
+}
+
+model OrderFile {
+  id String @id @default(uuid())
+
+  orderId String @map("order_id")
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  key          String   @db.VarChar(512)
+  originalName String   @map("original_name") @db.VarChar(255)
+  mimeType     String   @map("mime_type") @db.VarChar(128)
+  size         Int
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([orderId])
+  @@map("order_files")
+}
+
+model User {
+  id String @id @default(uuid())
+
+  phone            String  @unique @db.VarChar(32)
+  name             String  @db.VarChar(120)
+  passwordHash     String  @map("password_hash") @db.VarChar(255)
+  refreshTokenHash String? @map("refresh_token_hash") @db.VarChar(255)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
