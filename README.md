@@ -45,6 +45,34 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
+## OpenAPI and Swagger
+
+Swagger UI is available at:
+
+- `http://localhost:3000/api`
+
+OpenAPI JSON is available at:
+
+- `http://localhost:3000/api-json`
+
+## Telegram order notifications
+
+Backend sends Telegram notifications when `POST /orders` creates a new order.
+
+Required environment variables:
+
+- `TELEGRAM_BOT_TOKEN` - Telegram bot token from BotFather
+- `TELEGRAM_CHAT_ID` - target chat or group id
+
+Behavior:
+
+- Order creation in DB is always primary; Telegram send is best-effort.
+- If Telegram API fails, order creation response still succeeds and error is logged.
+- Text message is always sent first.
+- Photos are sent only if order already has files at create time:
+  - one file -> `sendPhoto`
+  - many files -> `sendMediaGroup` (chunks up to 10 photos per request)
+
 ## Test
 
 ```bash

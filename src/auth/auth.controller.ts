@@ -8,12 +8,21 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBody,
+  ApiCookieAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { AuthResponse, AuthService, AuthTokens } from './auth.service';
+import { AuthUserDto } from './dto/auth-user.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { SuccessResponseDto } from '../common/dto/success-response.dto';
 
 type RequestWithUser = Request & {
   user: {
@@ -22,11 +31,15 @@ type RequestWithUser = Request & {
   };
 };
 
+@ApiTags('Авторизация')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @ApiOperation({ summary: 'Регистрация пользователя' })
+  @ApiBody({ type: RegisterDto })
+  @ApiOkResponse({ type: AuthUserDto })
   async register(
     @Body() dto: RegisterDto,
     @Res({ passthrough: true }) res: Response,
@@ -38,6 +51,9 @@ export class AuthController {
   }
 
   @Post('login')
+  @ApiOperation({ summary: 'Вход пользователя' })
+  @ApiBody({ type: LoginDto })
+  @ApiOkResponse({ type: AuthUserDto })
   async login(
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
@@ -49,6 +65,9 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @ApiOperation({ summary: 'Обновление токенов авторизации' })
+  @ApiBody({ type: RefreshDto })
+  @ApiOkResponse({ type: SuccessResponseDto })
   async refresh(
     @Body() dto: RefreshDto,
     @Req() req: Request,
@@ -62,6 +81,9 @@ export class AuthController {
   }
 
   @Post('logout')
+  @ApiOperation({ summary: 'Выход пользователя' })
+  @ApiBody({ type: RefreshDto })
+  @ApiOkResponse({ type: SuccessResponseDto })
   async logout(
     @Body() dto: RefreshDto,
     @Req() req: Request,
@@ -76,6 +98,9 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
+  @ApiOperation({ summary: 'Получить профиль текущего пользователя' })
+  @ApiCookieAuth('accessToken')
+  @ApiOkResponse({ type: AuthUserDto })
   getMe(
     @Req() req: RequestWithUser,
   ): Promise<{ id: string; phone: string; name: string }> {

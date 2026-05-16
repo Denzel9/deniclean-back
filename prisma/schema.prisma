@@ -15,13 +15,18 @@ enum MeasurementType {
 model Order {
   id String @id @default(uuid())
 
-  customerName    String @map("customer_name")
-  customerPhone   String @map("customer_phone")
-  customerAddress String @map("customer_address")
+  userId String? @map("user_id")
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  price    Int
-  discount Int
-  total    Int
+  customerName    String? @map("customer_name")
+  customerPhone   String  @map("customer_phone")
+  customerAddress String? @map("customer_address")
+
+  price    Int?
+  discount Int?
+  total    Int?
+
+  isCompleted Boolean @default(false) @map("is_completed")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -29,6 +34,7 @@ model Order {
   items OrderItem[]
   files OrderFile[]
 
+  @@index([userId])
   @@map("orders")
 }
 
@@ -81,6 +87,8 @@ model User {
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
+  orders Order[]
 
   @@map("users")
 }

@@ -1,6 +1,11 @@
 import { IsNotEmpty, IsString, Matches } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class LoginDto {
+  @ApiProperty({
+    example: '+79991234567',
+    description: 'Номер телефона пользователя',
+  })
   @IsString()
   @IsNotEmpty({ message: 'Телефон обязателен' })
   @Matches(/^\+?[0-9]{10,15}$/, {
@@ -8,6 +13,10 @@ export class LoginDto {
   })
   phone: string;
 
+  @ApiProperty({
+    example: 'secret123',
+    description: 'Пароль пользователя',
+  })
   @IsString()
   @IsNotEmpty({ message: 'Пароль обязателен' })
   password: string;

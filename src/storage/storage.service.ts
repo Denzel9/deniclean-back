@@ -85,6 +85,20 @@ export class StorageService {
     return `${this.endpoint.replace(/\/$/, '')}/${this.bucket}/${key}`;
   }
 
+  async buildSignedObjectUrl(
+    key: string,
+    expiresIn = 60 * 15,
+  ): Promise<string> {
+    return getSignedUrl(
+      this.client,
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+      }),
+      { expiresIn },
+    );
+  }
+
   async uploadOrderFileAndSave(
     orderId: string,
     file: Express.Multer.File,
@@ -106,7 +120,7 @@ export class StorageService {
 
     return {
       ...createdFile,
-      url: this.buildObjectUrl(createdFile.key),
+      url: await this.buildSignedObjectUrl(createdFile.key),
     };
   }
 
@@ -118,25 +132,27 @@ export class StorageService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return files.map((file) => ({
-      ...file,
-      url: this.buildObjectUrl(file.key),
-    }));
+    return Promise.all(
+      files.map(async (file) => ({
+        ...file,
+        url: await this.buildSignedObjectUrl(file.key),
+      })),
+    );
   }
 
-  async getImages(count: number): Promise<StorageImageUrl[]> {
+  async getImages(
+    count: number,
+    offset: number,
+  ): Promise<{ data: StorageImageUrl[]; hasMore: boolean }> {
     if (!Number.isInteger(count) || count <= 0) {
       throw new BadRequestException('count must be a positive integer');
     }
-
-    if (count > 50) {
-      throw new BadRequestException(
-        'count is too large. Maximum allowed value is 50',
-      );
+    if (!Number.isInteger(offset) || offset < 0) {
+      throw new BadRequestException('offset must be a non-negative integer');
     }
 
     const worksFilePattern = /^img\/works(\d+)(\.[a-z0-9]+)?$/i;
-    const allKeys: string[] = [];
+    const matchedFiles: Array<{ key: string; order: number }> = [];
     let continuationToken: string | undefined;
 
     do {
@@ -149,37 +165,38 @@ export class StorageService {
         }),
       );
 
-      const keys = (objects.Contents ?? [])
-        .map((item) => item.Key)
-        .filter((key): key is string => Boolean(key && key !== 'img/'));
-      allKeys.push(...keys);
+      for (const item of objects.Contents ?? []) {
+        const key = item.Key;
+        if (!key || key === 'img/') {
+          continue;
+        }
+
+        const match = key.match(worksFilePattern);
+        if (!match) {
+          continue;
+        }
+
+        matchedFiles.push({
+          key,
+          order: Number(match[1]),
+        });
+      }
 
       continuationToken = objects.IsTruncated
         ? objects.NextContinuationToken
         : undefined;
     } while (continuationToken);
 
-    const matchedFiles = allKeys
-      .map((key) => {
-        const match = key.match(worksFilePattern);
-        if (!match) {
-          return null;
-        }
-
-        return {
-          key,
-          order: Number(match[1]),
-        };
-      })
-      .filter((item): item is { key: string; order: number } => item !== null);
-
     matchedFiles.sort((a, b) => a.order - b.order);
 
-    return Promise.all(
-      matchedFiles
-        .slice(0, count)
-        .map((item) => this.buildSignedImageByKey(item.key)),
-    );
+    return {
+      data: await Promise.all(
+        matchedFiles
+          .slice(offset, offset + count)
+          .map((item) => this.buildSignedImageByKey(item.key)),
+      ),
+      hasMore: matchedFiles.length > offset + count,
+    };
   }
 
   async getImageUrl(fileName: string): Promise<StorageImageUrl> {
@@ -220,14 +237,7 @@ export class StorageService {
 
   private async buildSignedImageByKey(key: string): Promise<StorageImageUrl> {
     const expiresIn = 60 * 15;
-    const url = await getSignedUrl(
-      this.client,
-      new GetObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-      }),
-      { expiresIn },
-    );
+    const url = await this.buildSignedObjectUrl(key, expiresIn);
 
     return {
       key,

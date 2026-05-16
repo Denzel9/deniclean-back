@@ -11,19 +11,52 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
+  ApiBody,
+  ApiConsumes,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
+import {
   StorageImageUrl,
   StorageOrderFileWithUrl,
   StorageService,
 } from './storage.service';
+import {
+  StorageImagesResponseDto,
+  StorageImageUrlDto,
+  StorageOrderFileWithUrlDto,
+} from './dto/storage-response.dto';
+import { GetImagesQueryDto } from './dto/get-images-query.dto';
+import { IdParamDto } from '../common/dto/id-param.dto';
+import { FileNameParamDto } from './dto/file-name-param.dto';
 
+@ApiTags('Хранилище')
 @Controller('storage')
 export class StorageController {
   constructor(private readonly storageService: StorageService) {}
 
   @Post(':id/files')
   @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Загрузить файл для заказа' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+      required: ['file'],
+    },
+  })
+  @ApiOkResponse({ type: StorageOrderFileWithUrlDto })
   async uploadFile(
-    @Param('id') id: string,
+    @Param() params: IdParamDto,
     @UploadedFile(
       new ParseFilePipeBuilder()
         .addMaxSizeValidator({ maxSize: 10 * 1024 * 1024 })
@@ -37,21 +70,35 @@ export class StorageController {
     )
     file: Express.Multer.File,
   ): Promise<StorageOrderFileWithUrl> {
-    return this.storageService.uploadOrderFileAndSave(id, file);
+    return this.storageService.uploadOrderFileAndSave(params.id, file);
   }
 
   @Get(':id/files')
-  getFiles(@Param('id') id: string): Promise<StorageOrderFileWithUrl[]> {
-    return this.storageService.getOrderFiles(id);
+  @ApiOperation({ summary: 'Получить файлы по ID заказа' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiOkResponse({ type: StorageOrderFileWithUrlDto, isArray: true })
+  getFiles(@Param() params: IdParamDto): Promise<StorageOrderFileWithUrl[]> {
+    return this.storageService.getOrderFiles(params.id);
   }
 
   @Get('img/:fileName')
-  getImage(@Param('fileName') fileName: string): Promise<StorageImageUrl> {
-    return this.storageService.getImageUrl(fileName);
+  @ApiOperation({
+    summary: 'Получить подписанный URL изображения по имени файла',
+  })
+  @ApiParam({ name: 'fileName', type: String })
+  @ApiOkResponse({ type: StorageImageUrlDto })
+  getImage(@Param() params: FileNameParamDto): Promise<StorageImageUrl> {
+    return this.storageService.getImageUrl(params.fileName);
   }
 
   @Get('img')
-  getImages(@Query('count') count = '10'): Promise<StorageImageUrl[]> {
-    return this.storageService.getImages(Number(count));
+  @ApiOperation({
+    summary: 'Получить пагинированный список подписанных URL изображений',
+  })
+  @ApiOkResponse({ type: StorageImagesResponseDto })
+  getImages(
+    @Query() query: GetImagesQueryDto,
+  ): Promise<{ data: StorageImageUrl[]; hasMore: boolean }> {
+    return this.storageService.getImages(query.count ?? 10, query.offset ?? 0);
   }
 }

@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "orders" ALTER COLUMN "customer_name" DROP NOT NULL,
+ALTER COLUMN "customer_address" DROP NOT NULL,
+ALTER COLUMN "price" DROP NOT NULL,
+ALTER COLUMN "discount" DROP NOT NULL,
+ALTER COLUMN "total" DROP NOT NULL;
